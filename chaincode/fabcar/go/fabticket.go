@@ -61,6 +61,7 @@ func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 }
 
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
+
 	tickets := []Ticket{
 		Ticket{TicketNo: "EVN001", AttendeeId: "owen1994", EventId: "fk948fsld2", Venue: "coex_conference_room", EventDate: "2019-10-22", EventTime: "19:00", TicketIssuer: "interpark"},
 		Ticket{TicketNo: "CON222", AttendeeId: "chris88", EventId: "fk94kh3rsw", Venue: "sejong_art_hall", EventDate: "2019-10-24", EventTime: "13:00", TicketIssuer: "auction"},
@@ -81,12 +82,29 @@ func (s *SmartContract) createNewTicket(APIstub shim.ChaincodeStubInterface, arg
 	if len(args) != 7 {
 		return shim.Error("Incorrect number of arguments. Expecting 7")
 	}
+	startKey := "000000"
+	endKey := "ZZZZZZ"
 
+	resultsIterator, err := APIstub.GetStateByRange(startKey, endKey)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer resultsIterator.Close()
+
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		if queryResponse.Key == args[0] {
+			return shim.Success([]byte("false"))
+		}
+	}
 	var ticket = Ticket{TicketNo: args[0], AttendeeId: args[1], EventId: args[2], Venue: args[3], EventDate: args[4], EventTime: args[5], TicketIssuer: args[6]}
 
 	ticketAsBytes, _ := json.Marshal(ticket)
 	APIstub.PutState(args[0], ticketAsBytes)
-	return shim.Success(ticketAsBytes)
+	return shim.Success([]byte("true"))
 }
 
 func (s *SmartContract) queryUserTickets(APIstub shim.ChaincodeStubInterface, args []string) sc.Response { // 특정 사용자가 가진 티켓 조회
@@ -167,11 +185,31 @@ func (s *SmartContract) queryOneTicket(APIstub shim.ChaincodeStubInterface, args
 }
 
 func (s *SmartContract) deleteTicket(APIstub shim.ChaincodeStubInterface, args []string) sc.Response { // 티켓 삭제
+
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting 1")
 	}
-	APIstub.DelState(args[0])
-	return shim.Success(nil)
+
+	startKey := "000000"
+	endKey := "ZZZZZZ"
+
+	resultsIterator, err := APIstub.GetStateByRange(startKey, endKey)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer resultsIterator.Close()
+
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		if queryResponse.Key == args[0] {
+			APIstub.DelState(args[0])
+			return shim.Success([]byte("true"))
+		}
+	}
+	return shim.Success([]byte("false"))
 }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.

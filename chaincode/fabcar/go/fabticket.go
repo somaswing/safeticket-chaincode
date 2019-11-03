@@ -19,13 +19,13 @@ type SmartContract struct {
 }
 
 type Ticket struct {
-	TicketNo     string `json:"ticket_no"`
+	TicketCode   string `json:"ticket_code"`
 	AttendeeId   string `json:"attendee_id"`
-	EventId      string `json:"event_id"`
-	Venue        string `json:venue`
-	EventDate    string `json:event_date` // 2019-10-22
-	EventTime    string `json:event_time` // 19:00
-	TicketIssuer string `json:ticket_issuer`
+	EventName    string `json:"event_name"`
+	Venue        string `json:"venue"`
+	EventDate    string `json:"event_date"` // 2019-10-22
+	EventTime    string `json:"event_time"` // 19:00
+	TicketIssuer string `json:"ticket_issuer"`
 }
 
 /*
@@ -47,13 +47,13 @@ func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 	// Route to the appropriate handler function to interact with the ledger appropriately
 	if function == "initLedger" {
 		return s.initLedger(APIstub)
-	} else if function == "createNewTicket" { // args = ["ticket_no", "attendee_id", "event_id", "venue", "event_date", "event_time", "ticket_issuer"], 티켓을 새로 생성, 결과타입 boolean
+	} else if function == "createNewTicket" { // args = ["ticket_code", "attendee_id", "event_id", "venue", "event_date", "event_time", "ticket_issuer"], 티켓을 새로 생성, 결과타입 boolean
 		return s.createNewTicket(APIstub, args)
 	} else if function == "queryUserTickets" { // args = ["attendee_id"], 특정 회원이 가지고 있는 모든 티켓을 조회, 결과 타입 StringArray
 		return s.queryUserTickets(APIstub, args)
-	} else if function == "deleteTicket" { // args = ["ticket_no"], 특정 티켓을 삭제, 결과 타입 boolean
+	} else if function == "deleteTicket" { // args = ["ticket_code"], 특정 티켓을 삭제, 결과 타입 boolean
 		return s.deleteTicket(APIstub, args)
-	} else if function == "queryOneTicket" { // args = ["ticket_no"] 티켓 하나 정보 조회
+	} else if function == "queryOneTicket" { // args = ["ticket_code"] 티켓 하나 정보 조회
 		return s.queryOneTicket(APIstub, args)
 	}
 
@@ -63,14 +63,14 @@ func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
 
 	tickets := []Ticket{
-		Ticket{TicketNo: "EVN001", AttendeeId: "owen1994", EventId: "fk948fsld2", Venue: "coex_conference_room", EventDate: "2019-10-22", EventTime: "19:00", TicketIssuer: "interpark"},
-		Ticket{TicketNo: "CON222", AttendeeId: "chris88", EventId: "fk94kh3rsw", Venue: "sejong_art_hall", EventDate: "2019-10-24", EventTime: "13:00", TicketIssuer: "auction"},
+		Ticket{TicketCode: "EVN001", AttendeeId: "owen1994", EventName: "IU Concert", Venue: "coex_conference_room", EventDate: "2019-10-22", EventTime: "19:00", TicketIssuer: "interpark"},
+		Ticket{TicketCode: "CON222", AttendeeId: "chris88", EventName: "Mammamia", Venue: "sejong_art_hall", EventDate: "2019-10-24", EventTime: "13:00", TicketIssuer: "auction"},
 	}
 
 	i := 0
 	for i < len(tickets) {
 		ticketAsBytes, _ := json.Marshal(tickets[i])
-		APIstub.PutState(tickets[i].TicketNo, ticketAsBytes)
+		APIstub.PutState(tickets[i].TicketCode, ticketAsBytes)
 		i = i + 1
 	}
 
@@ -100,7 +100,7 @@ func (s *SmartContract) createNewTicket(APIstub shim.ChaincodeStubInterface, arg
 			return shim.Success([]byte("false"))
 		}
 	}
-	var ticket = Ticket{TicketNo: args[0], AttendeeId: args[1], EventId: args[2], Venue: args[3], EventDate: args[4], EventTime: args[5], TicketIssuer: args[6]}
+	var ticket = Ticket{TicketCode: args[0], AttendeeId: args[1], EventName: args[2], Venue: args[3], EventDate: args[4], EventTime: args[5], TicketIssuer: args[6]}
 
 	ticketAsBytes, _ := json.Marshal(ticket)
 	APIstub.PutState(args[0], ticketAsBytes)
@@ -135,12 +135,20 @@ func (s *SmartContract) queryUserTickets(APIstub shim.ChaincodeStubInterface, ar
 		var raw map[string]interface{}
 		json.Unmarshal(queryResponse.Value, &raw)
 		id := fmt.Sprintf("%v", raw["attendee_id"])
-		ticketNo := fmt.Sprintf("%v", raw["ticket_no"])
+		ticketCode := fmt.Sprintf("%v", raw["ticket_code"])
+		eventName := fmt.Sprintf("%v", raw["event_name"])
+		eventDate := fmt.Sprintf("%v", raw["event_date"])
 		if id == args[0] {
 			if bArrayMemberAlreadyWritten == true {
 				buffer.WriteString(", ")
 			}
-			buffer.WriteString(ticketNo)
+			buffer.WriteString("{ \"TicketCode\" : \"")
+			buffer.WriteString(ticketCode)
+			buffer.WriteString("\", \"EventName\" : \"")
+			buffer.WriteString(eventName)
+			buffer.WriteString("\", \"EventDate\" : \"")
+			buffer.WriteString(eventDate)
+			buffer.WriteString("\" }")
 			bArrayMemberAlreadyWritten = true
 		}
 	}
